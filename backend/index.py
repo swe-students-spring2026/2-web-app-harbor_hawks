@@ -1,5 +1,8 @@
 from datetime import datetime, timezone
-from db import get_db
+try:
+    from .db import get_db
+except ImportError:  # allows `python backend/index.py`
+    from db import get_db
 
 print("INDEX.PY STARTED")
 

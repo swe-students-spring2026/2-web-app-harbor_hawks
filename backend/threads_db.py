@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
 from bson import ObjectId
-from db import get_db
+try:
+    from .db import get_db
+except ImportError:  # allows `python backend/threads_db.py`
+    from db import get_db
 
 def _oid(x):
     """Convert string/ObjectId -> ObjectId."""

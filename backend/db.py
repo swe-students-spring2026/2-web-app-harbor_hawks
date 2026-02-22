@@ -12,6 +12,7 @@ def get_db():
     global _client
     if _client is None:
         mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-        _client = MongoClient(mongo_uri)
+        timeout_ms = int(os.getenv("MONGO_TIMEOUT_MS", "2000"))
+        _client = MongoClient(mongo_uri, serverSelectionTimeoutMS=timeout_ms)
     db_name = os.getenv("DB_NAME", "student_connect")
     return _client[db_name]
