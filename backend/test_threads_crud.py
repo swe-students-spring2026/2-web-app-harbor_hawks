@@ -1,9 +1,24 @@
 from bson import ObjectId
-from threads_db import (
-    ensure_thread_indexes,
-    create_thread, list_threads, get_thread,
-    update_thread, delete_thread, search_threads
-)
+try:
+    from .threads_db import (
+        ensure_thread_indexes,
+        create_thread,
+        list_threads,
+        get_thread,
+        update_thread,
+        delete_thread,
+        search_threads,
+    )
+except ImportError:  # import safety check
+    from threads_db import (
+        ensure_thread_indexes,
+        create_thread,
+        list_threads,
+        get_thread,
+        update_thread,
+        delete_thread,
+        search_threads,
+    )
 
 def show_thread(t, label=""):
     if not t:

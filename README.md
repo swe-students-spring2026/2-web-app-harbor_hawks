@@ -4,7 +4,7 @@ A little exercise to build a web application following an agile development proc
 
 ## Product vision statement
 
-Create a structured, academic digital space where students can ask questions, create posts, and collaborate within their major and specific classes to make learning more efficient, contextual, and community-driven.
+To create a structured, academic digital space where students can ask questions, create posts, and collaborate within their major and specific classes to make learning more efficient, contextual, and community-driven.
 
 ## User stories
 
@@ -12,8 +12,12 @@ See instructions. Delete this line and place a link to the user stories here.
 
 ## Steps necessary to run the software
 
-See instructions. Delete this line and place instructions to download, configure, and run the software here.
+Backend (run all commands from the repo root):
+- Install dependencies: `python3 -m pip install -r requirements.txt`
+- Create and fill in your local env file: `cp env.example .env` (then edit `.env` with the correct values)
+- Ensure MongoDB is running locally (matching `MONGO_URI` in `.env`)
+- Run the Flask API: `python3 -m backend.flask.app`
 
 ## Task boards
 
-See instructions. Delete this line and place a link to the task boards here.
+[Sprint 1](https://github.com/orgs/swe-students-spring2026/projects/38/views/1)

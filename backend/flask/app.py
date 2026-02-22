@@ -1,0 +1,171 @@
+from __future__ import annotations
+
+import os
+from datetime import datetime
+from typing import Any
+
+from bson import ObjectId
+from flask import Flask, jsonify, request
+from flask_login import LoginManager
+from werkzeug.exceptions import BadRequest, HTTPException, NotFound
+
+from backend.flask.auth import bp as auth_bp
+from backend.flask.auth import ensure_user_indexes, load_user_by_id
+from backend.db import get_db
+# import the backend functions for threads that interact with the database
+from backend.threads_db import (
+    create_thread,
+    delete_thread,
+    get_thread,
+    list_threads,
+    search_threads,
+    update_thread,
+)
+
+
+def _to_jsonable(value: Any) -> Any:
+    if isinstance(value, ObjectId):
+        return str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, list):
+        return [_to_jsonable(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _to_jsonable(v) for k, v in value.items()}
+    return value
+
+
+def _json(payload: Any, status: int = 200):
+    return jsonify(_to_jsonable(payload)), status
+
+# Function to intialize the Flask app and define routes
+def create_app() -> Flask:
+    app = Flask(__name__)
+    app.config["JSON_SORT_KEYS"] = False
+    app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me")
+
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+
+    @login_manager.user_loader
+    def _user_loader(user_id: str):
+        return load_user_by_id(user_id)
+
+    @app.errorhandler(HTTPException)
+    def _handle_http_exception(exc: HTTPException):
+        return _json({"ok": False, "error": exc.description}, exc.code or 500)
+
+    @app.errorhandler(Exception)
+    def _handle_uncaught_exception(exc: Exception):
+        return _json({"ok": False, "error": str(exc)}, 500)
+
+    @app.get("/api/health")
+    def health():
+        db = get_db()
+        db.client.admin.command("ping")
+        return _json({"ok": True, "db": db.name})
+
+    app.register_blueprint(auth_bp, url_prefix="/api")
+
+    @app.get("/api/threads")
+    def api_list_threads():
+        limit = request.args.get("limit", default=20, type=int)
+        skip = request.args.get("skip", default=0, type=int)
+        q = request.args.get("q", default=None, type=str)
+        tag = request.args.get("tag", default=None, type=str)
+
+        limit = max(1, min(int(limit), 100))
+        skip = max(0, int(skip))
+
+        if q or tag:
+            threads = search_threads(q=q, tag=tag, limit=limit, skip=skip)
+        else:
+            threads = list_threads(limit=limit, skip=skip)
+
+        return _json({"items": threads, "limit": limit, "skip": skip})
+
+    @app.post("/api/threads")
+    def api_create_thread():
+        data = request.get_json(silent=True) or {}
+
+        author_id = data.get("author_id") or ObjectId()
+        author_display_name = data.get("author_display_name")
+        title = data.get("title")
+        body = data.get("body")
+
+        if not author_display_name or not title or not body:
+            raise BadRequest("author_display_name, title, and body are required.")
+
+        thread = create_thread(
+            author_id=author_id,
+            author_display_name=author_display_name,
+            title=title,
+            body=body,
+            tags=data.get("tags"),
+            photo_ids=data.get("photo_ids"),
+        )
+        return _json(thread, 201)
+
+    @app.get("/api/threads/<thread_id>")
+    def api_get_thread(thread_id: str):
+        try:
+            thread = get_thread(thread_id)
+        except Exception as exc:
+            raise BadRequest("Invalid thread_id.") from exc
+
+        if not thread:
+            raise NotFound("Thread not found.")
+        return _json(thread)
+
+    @app.patch("/api/threads/<thread_id>")
+    def api_update_thread(thread_id: str):
+        data = request.get_json(silent=True) or {}
+        author_id = data.get("author_id")
+        if not author_id:
+            raise BadRequest("author_id is required for updates.")
+
+        patch = {k: v for k, v in data.items() if k != "author_id"}
+        try:
+            ok = update_thread(thread_id=thread_id, author_id=author_id, patch=patch)
+        except Exception as exc:
+            raise BadRequest("Invalid thread_id or author_id.") from exc
+
+        if not ok:
+            raise NotFound("Thread not found (or you are not the author).")
+
+        return _json(get_thread(thread_id))
+
+    @app.delete("/api/threads/<thread_id>")
+    def api_delete_thread(thread_id: str):
+        data = request.get_json(silent=True) or {}
+        author_id = data.get("author_id")
+        if not author_id:
+            raise BadRequest("author_id is required for deletes.")
+
+        try:
+            ok = delete_thread(thread_id=thread_id, author_id=author_id)
+        except Exception as exc:
+            raise BadRequest("Invalid thread_id or author_id.") from exc
+
+        if not ok:
+            raise NotFound("Thread not found (or you are not the author).")
+        return _json({"ok": True})
+
+    try:
+        ensure_user_indexes()
+    except Exception:
+        # Keep the server booting even if MongoDB isn't running yet.
+        pass
+
+    return app
+
+
+app = create_app()
+
+
+if __name__ == "__main__":
+    app.run(
+        host=os.getenv("FLASK_HOST", "127.0.0.1"),
+        port=int(os.getenv("FLASK_PORT", "5000")),
+        debug=os.getenv("FLASK_DEBUG", "1") == "1",
+    )
