@@ -6,9 +6,13 @@ from typing import Any
 
 from bson import ObjectId
 from flask import Flask, jsonify, request
+from flask_login import LoginManager
 from werkzeug.exceptions import BadRequest, HTTPException, NotFound
 
+from backend.flask.auth import bp as auth_bp
+from backend.flask.auth import ensure_user_indexes, load_user_by_id
 from backend.db import get_db
+# import the backend functions for threads that interact with the database
 from backend.threads_db import (
     create_thread,
     delete_thread,
@@ -34,10 +38,18 @@ def _to_jsonable(value: Any) -> Any:
 def _json(payload: Any, status: int = 200):
     return jsonify(_to_jsonable(payload)), status
 
-
+# Function to intialize the Flask app and define routes
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["JSON_SORT_KEYS"] = False
+    app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me")
+
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+
+    @login_manager.user_loader
+    def _user_loader(user_id: str):
+        return load_user_by_id(user_id)
 
     @app.errorhandler(HTTPException)
     def _handle_http_exception(exc: HTTPException):
@@ -52,6 +64,8 @@ def create_app() -> Flask:
         db = get_db()
         db.client.admin.command("ping")
         return _json({"ok": True, "db": db.name})
+
+    app.register_blueprint(auth_bp, url_prefix="/api")
 
     @app.get("/api/threads")
     def api_list_threads():
@@ -136,6 +150,12 @@ def create_app() -> Flask:
         if not ok:
             raise NotFound("Thread not found (or you are not the author).")
         return _json({"ok": True})
+
+    try:
+        ensure_user_indexes()
+    except Exception:
+        # Keep the server booting even if MongoDB isn't running yet.
+        pass
 
     return app
 

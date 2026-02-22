@@ -9,7 +9,7 @@ try:
         delete_thread,
         search_threads,
     )
-except ImportError:  # allows `python backend/test_threads_crud.py`
+except ImportError:  # import safety check
     from threads_db import (
         ensure_thread_indexes,
         create_thread,
