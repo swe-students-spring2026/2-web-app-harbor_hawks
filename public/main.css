@@ -1,0 +1,47 @@
+#header{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+#signup{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  margin-top: 100px;
+}
+#btn{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  margin-top: 10px;
+}
+#signupButton{
+  background-color: blueviolet;
+  color: white;
+  border: none;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-radius: 18px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: padding 0.15s, opacity 0.15s;
+}
+
+/* #signupButton:hover{
+  opacity: 0.8;
+} */
+#signupButton:active{
+  opacity: 0.5;
+}
+#h{
+  font-size: large;
+  border: none;
+  border-radius: 50%;
+  padding: 10px;
+  background-color: blueviolet;
+  color: white;
+}
