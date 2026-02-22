@@ -4,7 +4,7 @@ A little exercise to build a web application following an agile development proc
 
 ## Product vision statement
 
-See instructions. Delete this line and place the Product Vision Statement here.
+Create a structured, academic digital space where students can ask questions, create posts, and collaborate within their major and specific classes to make learning more efficient, contextual, and community-driven.
 
 ## User stories
 
