@@ -8,7 +8,8 @@ To create a structured, academic digital space where students can ask questions,
 
 ## User stories
 
-See instructions. Delete this line and place a link to the user stories here.
+### Christopher Cajamarca User Stories
+
 
 ## Steps necessary to run the software
 
