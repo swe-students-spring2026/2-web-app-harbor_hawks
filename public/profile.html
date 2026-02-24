@@ -11,5 +11,49 @@
   <a href="index.html">
     <button id="h">←</button>
   </a>
+  <h1 class="header">Complete Your Profile</h1>
+  <p class="tagline">Tell us a bit about your academic journey</p>
+
+  <form action="dashboard.html" method="get">
+
+    <div class="form-group">
+      <!-- <label for="school">School</label> -->
+      <select id="school" name="school" required>
+        <option value="" disabled selected>Select your school</option>
+        <option value="cas">College of Arts & Science</option>
+        <option value="stern">Stern School of Business</option>
+        <option value="tandon">Tandon School of Engineering</option>
+        <option value="steinhardt">Steinhardt</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <!-- <label for="classYear">Class Year</label> -->
+      <select id="classYear" name="classYear" required>
+        <option value="" disabled selected>Select your year</option>
+        <option value="2026">Class of 2026</option>
+        <option value="2027">Class of 2027</option>
+        <option value="2028">Class of 2028</option>
+        <option value="2029">Class of 2029</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <!-- <label for="major">Major</label> -->
+      <input id="major" name="major" type="text" placeholder="Enter your major" required>
+    </div>
+
+    <div class="form-group">
+      <!-- <label for="courses">Current Courses</label> -->
+      <input id="courses" name="courses" type="text" placeholder="e.g. Algorithms, OS, Linear Algebra">
+    </div>
+
+    <div class="btn">
+      <button type="submit" class="submit">
+        Save Profile
+      </button>
+    </div>
+
+  </form>
 </body>
 </html>
