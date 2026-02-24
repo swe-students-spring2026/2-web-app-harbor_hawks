@@ -13,6 +13,7 @@ To create a structured, academic digital space where students can ask questions,
 ## Steps necessary to run the software
 
 Backend (run all commands from the repo root):
+- Install Pipenv (one-time): `python3 -m pip install --user pipenv`
 - Install dependencies: `pipenv install`
 - Create and fill in your local env file: `cp env.example .env` (then edit `.env` with the correct values)
 - Ensure MongoDB is running locally (matching `MONGO_URI` in `.env`)
