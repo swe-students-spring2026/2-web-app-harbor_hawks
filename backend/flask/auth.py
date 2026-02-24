@@ -7,10 +7,13 @@ from bson import ObjectId
 from flask import Blueprint, jsonify, request
 from flask_login import UserMixin, current_user, login_required, login_user, logout_user
 from werkzeug.exceptions import BadRequest, Conflict, Unauthorized
-from werkzeug.security import check_password_hash, generate_password_hash
-
-from backend.db import get_db
-
+from backend.users_db import (
+    authenticate_user,
+    create_user_with_password,
+    ensure_user_indexes,
+    get_user,
+    get_user_by_email,
+)
 
 @dataclass
 class MongoUser(UserMixin):
@@ -27,21 +30,10 @@ class MongoUser(UserMixin):
 
 
 def load_user_by_id(user_id: str) -> MongoUser | None:
-    db = get_db()
-    try:
-        oid = ObjectId(user_id)
-    except Exception:
-        return None
-    doc = db.users.find_one({"_id": oid})
+    doc = get_user(user_id)
     if not doc:
         return None
     return MongoUser(_id=doc["_id"], email=doc["email"], display_name=doc.get("display_name"))
-
-
-def ensure_user_indexes() -> None:
-    db = get_db()
-    db.users.create_index([("email", 1)], unique=True)
-
 
 bp = Blueprint("auth", __name__)
 
@@ -63,20 +55,16 @@ def register():
     if not email or not password:
         raise BadRequest("email and password are required.")
 
-    db = get_db()
-    doc = {
-        "email": email,
-        "password_hash": generate_password_hash(password),
-        "display_name": display_name,
-    }
+    # Optional pre-check for a nicer error message (unique index will also enforce this)
+    if get_user_by_email(email):
+        raise Conflict("Account already exists.")
 
     try:
-        res = db.users.insert_one(doc)
+        doc = create_user_with_password(email=email, password=password, display_name=display_name)
     except Exception as exc:
-        # Most likely duplicate email (unique index) or DB down.
         raise Conflict("Account already exists (or DB error).") from exc
 
-    user = MongoUser(_id=res.inserted_id, email=email, display_name=display_name)
+    user = MongoUser(_id=doc["_id"], email=doc["email"], display_name=doc.get("display_name"))
     login_user(user)
     return jsonify({"ok": True, "user": user.to_json()}), 201
 
@@ -90,9 +78,8 @@ def login():
     if not email or not password:
         raise BadRequest("email and password are required.")
 
-    db = get_db()
-    doc = db.users.find_one({"email": email})
-    if not doc or not check_password_hash(doc.get("password_hash", ""), password):
+    doc = authenticate_user(email=email, password=password)
+    if not doc:
         raise Unauthorized("Invalid email or password.")
 
     user = MongoUser(_id=doc["_id"], email=doc["email"], display_name=doc.get("display_name"))
