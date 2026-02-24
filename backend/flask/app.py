@@ -43,6 +43,25 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.config["JSON_SORT_KEYS"] = False
     app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me")
+    cors_origins = {
+        origin.strip()
+        for origin in os.getenv(
+            "CORS_ALLOWED_ORIGINS",
+            "http://127.0.0.1:5500,http://localhost:5500",
+        ).split(",")
+        if origin.strip()
+    }
+
+    @app.after_request
+    def _add_cors_headers(response):
+        origin = request.headers.get("Origin")
+        if origin and origin in cors_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, DELETE, OPTIONS"
+            response.headers["Vary"] = "Origin"
+        return response
 
     login_manager = LoginManager()
     login_manager.init_app(app)

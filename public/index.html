@@ -12,7 +12,7 @@
 <h1 class="header">StudentLink</h1>
 <img src="../img/logo.png" class="logo" alt="">
 <p class="tagline">Create an account or log in</p>
-<form action="profile.html" method="get">
+<form id="signupForm" action="profile.html" method="get">
   <div class="form-group">
     <!-- <label for="fullName">Full Name</label> -->
     <input id="fullName" name="fullName" type="text" autocomplete="name" required placeholder="Name">
@@ -31,6 +31,7 @@
     </button>
   </div>
 </form>
+<p id="signupMessage" role="status" aria-live="polite"></p>
 <div class="divider">
   <span>Or log in with</span>
 </div>
@@ -49,4 +50,37 @@
     Already have an account?&nbsp;<a href="login.html" class="link">Login</a>
   </p>
 </div>
+<script>
+  const signupForm = document.getElementById("signupForm");
+  const signupMessage = document.getElementById("signupMessage");
+  const API_BASE = "http://127.0.0.1:5000/api";
+
+  signupForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    signupMessage.textContent = "Creating account...";
+
+    const display_name = document.getElementById("fullName").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    try {
+      const response = await fetch(`${API_BASE}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ display_name, email, password }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Registration failed.");
+      }
+
+      signupMessage.textContent = "Account created. Redirecting...";
+      window.location.href = "profile.html";
+    } catch (error) {
+      signupMessage.textContent = error.message || "Could not create account.";
+    }
+  });
+</script>
 </body>
