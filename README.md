@@ -28,11 +28,10 @@ To create a structured, academic digital space where students can ask questions,
 4. Ensure MongoDB is running locally (matching `MONGO_URI` in `.env`)
 5. Run the Flask API: `pipenv run python -m backend.flask.app`
 
-### Frontend (in a separate terminal window):
+### Frontend:
 1. In your browser, open: http://127.0.0.1:5000/
 
 
 ## Task boards
-
-[Sprint 1](https://github.com/orgs/swe-students-spring2026/projects/38/views/1?filterQuery=)
-[Sprint 2](https://github.com/orgs/swe-students-spring2026/projects/45/views/1?filterQuery=)
+- [Sprint 1](https://github.com/orgs/swe-students-spring2026/projects/38/views/1?filterQuery=)
+- [Sprint 2](https://github.com/orgs/swe-students-spring2026/projects/45/views/1?filterQuery=)
