@@ -4,25 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student Link</title>
-  <link rel="stylesheet" href="main.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
 <h1 class="header">StudentLink</h1>
-<img src="../img/logo.png" class="logo" alt="">
+<img src="{{ url_for('image_asset', filename='logo.png') }}" class="logo" alt="">
 <p class="tagline">Create an account or log in</p>
-<form id="signupForm" action="profile.html" method="get">
+<!-- Native form POST into Flask auth.register route -->
+<form method="POST" action="{{ url_for('auth.register') }}">
   <div class="form-group">
-    <!-- <label for="fullName">Full Name</label> -->
-    <input id="fullName" name="fullName" type="text" autocomplete="name" required placeholder="Name">
+    <input id="fullName" name="display_name" type="text" autocomplete="name" required placeholder="Name">
   </div>
   <div class="form-group">
-    <!-- <label for="email">Email</label> -->
     <input id="email" name="email" type="email" autocomplete="email" required placeholder="Email">
   </div>
   <div class="form-group">
-    <!-- <label for="password">Password</label> -->
     <input id="password" name="password" type="password" required placeholder="Password">
   </div>
   <div class="btn">
@@ -37,50 +35,18 @@
 </div>
 <div class="logo-row">
   <button class="logo-btn">
-    <img src="../img/googlelogo.png" class="icon" alt="">
+    <img src="{{ url_for('image_asset', filename='googlelogo.png') }}" class="icon" alt="">
     Google
   </button>
   <button class="logo-btn">
-    <img src="../img/github.png" class="icon" alt="">
+    <img src="{{ url_for('image_asset', filename='github.png') }}" class="icon" alt="">
     Github
   </button>
 </div>
 <div class="redirect">
   <p>
-    Already have an account?&nbsp;<a href="login.html" class="link">Login</a>
+    Already have an account?&nbsp;<a href="{{ url_for('static', filename='login.html') }}" class="link">Login</a>
   </p>
 </div>
-<script>
-  const signupForm = document.getElementById("signupForm");
-  const signupMessage = document.getElementById("signupMessage");
-  const API_BASE = "http://127.0.0.1:5000/api";
-
-  signupForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    signupMessage.textContent = "Creating account...";
-
-    const display_name = document.getElementById("fullName").value.trim();
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value;
-
-    try {
-      const response = await fetch(`${API_BASE}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ display_name, email, password }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Registration failed.");
-      }
-
-      signupMessage.textContent = "Account created. Redirecting...";
-      window.location.href = "profile.html";
-    } catch (error) {
-      signupMessage.textContent = error.message || "Could not create account.";
-    }
-  });
-</script>
 </body>
+</html>

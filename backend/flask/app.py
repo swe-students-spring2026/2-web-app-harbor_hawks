@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from datetime import datetime
 from typing import Any
 
 from bson import ObjectId
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_login import LoginManager
 from werkzeug.exceptions import BadRequest, HTTPException, NotFound
 
@@ -24,6 +25,7 @@ from backend.threads_db import (
 
 
 def _to_jsonable(value: Any) -> Any:
+    # Normalize Mongo/Datetime values so jsonify can serialize them.
     if isinstance(value, ObjectId):
         return str(value)
     if isinstance(value, datetime):
@@ -38,9 +40,15 @@ def _to_jsonable(value: Any) -> Any:
 def _json(payload: Any, status: int = 200):
     return jsonify(_to_jsonable(payload)), status
 
-# Function to intialize the Flask app and define routes
+# Initialize the Flask app and all routes.
 def create_app() -> Flask:
-    app = Flask(__name__)
+    project_root = Path(__file__).resolve().parents[2]
+    app = Flask(
+        __name__,
+        template_folder=str(project_root / "public"),
+        static_folder=str(project_root / "public"),
+        static_url_path="",
+    )
     app.config["JSON_SORT_KEYS"] = False
     app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me")
     cors_origins = {
@@ -54,6 +62,7 @@ def create_app() -> Flask:
 
     @app.after_request
     def _add_cors_headers(response):
+        # Only echo trusted origins from env config.
         origin = request.headers.get("Origin")
         if origin and origin in cors_origins:
             response.headers["Access-Control-Allow-Origin"] = origin
@@ -80,14 +89,26 @@ def create_app() -> Flask:
 
     @app.get("/api/health")
     def health():
+        # Lightweight DB connectivity probe.
         db = get_db()
         db.client.admin.command("ping")
         return _json({"ok": True, "db": db.name})
+
+    @app.get("/")
+    def signup_page():
+        # Server-rendered landing/signup page.
+        return render_template("index.html")
+
+    @app.get("/img/<path:filename>")
+    def image_asset(filename: str):
+        # Serve logo/provider images from repo-level img/.
+        return send_from_directory(project_root / "img", filename)
 
     app.register_blueprint(auth_bp, url_prefix="/api")
 
     @app.get("/api/threads")
     def api_list_threads():
+        # Supports pagination and optional text/tag filtering.
         limit = request.args.get("limit", default=20, type=int)
         skip = request.args.get("skip", default=0, type=int)
         q = request.args.get("q", default=None, type=str)
@@ -105,6 +126,7 @@ def create_app() -> Flask:
 
     @app.post("/api/threads")
     def api_create_thread():
+        # Thread create remains JSON-only.
         data = request.get_json(silent=True) or {}
 
         author_id = data.get("author_id") or ObjectId()
@@ -127,6 +149,7 @@ def create_app() -> Flask:
 
     @app.get("/api/threads/<thread_id>")
     def api_get_thread(thread_id: str):
+        # Return one thread by id.
         try:
             thread = get_thread(thread_id)
         except Exception as exc:
@@ -138,6 +161,7 @@ def create_app() -> Flask:
 
     @app.patch("/api/threads/<thread_id>")
     def api_update_thread(thread_id: str):
+        # Author id is required to enforce ownership.
         data = request.get_json(silent=True) or {}
         author_id = data.get("author_id")
         if not author_id:
@@ -156,6 +180,7 @@ def create_app() -> Flask:
 
     @app.delete("/api/threads/<thread_id>")
     def api_delete_thread(thread_id: str):
+        # Delete also enforces author ownership.
         data = request.get_json(silent=True) or {}
         author_id = data.get("author_id")
         if not author_id:
