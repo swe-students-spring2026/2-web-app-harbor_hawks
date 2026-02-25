@@ -142,7 +142,7 @@ label{
   font-size: 1rem;
 }
 
-input{
+input, select{
   background: var(--surface-2);
   border: none;
   border-radius: 10px;
