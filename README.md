@@ -13,15 +13,24 @@ To create a structured, academic digital space where students can ask questions,
 ## Steps necessary to run the software
 #### (run all commands from the repo root)
 
-Backend:
-- Install Pipenv (one-time): `python3 -m pip install --user pipenv`
-- Install dependencies: `pipenv install`
-- Create and fill in your local env file: `cp env.example .env` (then edit `.env` with the correct values)
-- Ensure MongoDB is running locally (matching `MONGO_URI` in `.env`)
-- Run the Flask API: `pipenv run python -m backend.flask.app`
+### Database setup (MongoDB)
 
-Frontend (in a separate terminal windwow):
-- In your browser, open: http://127.0.0.1:5000/
+1. Install MongoDB Community Edition and `mongosh` on your machine.
+2. Start the MongoDB server.
+   macOS (Homebrew): `brew services start mongodb-community`
+   Linux (systemd): `sudo systemctl start mongod`
+   Windows: start the `MongoDB Server` service in Services.
+
+### Backend (in a separate terminal window):
+1. Install Pipenv (one-time): `python3 -m pip install --user pipenv`
+2. Install dependencies: `pipenv install`
+3. Create and fill in your local env file: `cp env.example .env` (then edit `.env` with the correct values)
+4. Ensure MongoDB is running locally (matching `MONGO_URI` in `.env`)
+5. Run the Flask API: `pipenv run python -m backend.flask.app`
+
+### Frontend (in a separate terminal window):
+1. In your browser, open: http://127.0.0.1:5000/
+
 
 ## Task boards
 
