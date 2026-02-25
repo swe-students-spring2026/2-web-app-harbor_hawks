@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from bson import ObjectId
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, redirect, request, url_for
 from flask_login import UserMixin, current_user, login_required, login_user, logout_user
 from werkzeug.exceptions import BadRequest, Conflict, Unauthorized
 from backend.users_db import (
@@ -30,6 +30,7 @@ class MongoUser(UserMixin):
 
 
 def load_user_by_id(user_id: str) -> MongoUser | None:
+    # Rehydrate Flask-Login user from Mongo.
     doc = get_user(user_id)
     if not doc:
         return None
@@ -40,6 +41,7 @@ bp = Blueprint("auth", __name__)
 
 @bp.get("/auth/me")
 def me():
+    # Returns the currently logged-in user.
     if not current_user.is_authenticated:
         raise Unauthorized("Not logged in.")
     return jsonify({"ok": True, "user": current_user.to_json()})
@@ -47,10 +49,15 @@ def me():
 
 @bp.post("/auth/register")
 def register():
-    data = request.get_json(silent=True) or {}
+    # Accept JSON for API clients and form posts for server-rendered pages.
+    is_json_request = request.is_json
+    data = request.get_json(silent=True) if is_json_request else request.form.to_dict()
+    data = data or {}
+
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
-    display_name = (data.get("display_name") or "").strip() or None
+    # Keep backward compatibility with legacy fullName field.
+    display_name = (data.get("display_name") or data.get("fullName") or "").strip() or None
 
     if not email or not password:
         raise BadRequest("email and password are required.")
@@ -66,11 +73,17 @@ def register():
 
     user = MongoUser(_id=doc["_id"], email=doc["email"], display_name=doc.get("display_name"))
     login_user(user)
+
+    if not is_json_request:
+        # Browser form flow: continue to profile page.
+        return redirect(url_for("static", filename="profile.html"))
+
     return jsonify({"ok": True, "user": user.to_json()}), 201
 
 
 @bp.post("/auth/login")
 def login():
+    # Login stays JSON-based for now.
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
@@ -90,6 +103,6 @@ def login():
 @bp.post("/auth/logout")
 @login_required
 def logout():
+    # Clear current session cookie.
     logout_user()
     return jsonify({"ok": True})
-
