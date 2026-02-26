@@ -6,13 +6,14 @@ from datetime import datetime
 from typing import Any
 
 from bson import ObjectId
-from flask import Flask, jsonify, render_template, request, send_from_directory
-from flask_login import LoginManager
+from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, url_for
+from flask_login import LoginManager, current_user, login_required
 from werkzeug.exceptions import BadRequest, HTTPException, NotFound
 
 from backend.flask.auth import bp as auth_bp
 from backend.flask.auth import ensure_user_indexes, load_user_by_id
 from backend.db import get_db
+from backend.users_db import update_user_profile
 # import the backend functions for threads that interact with the database
 from backend.threads_db import (
     create_thread,
@@ -99,13 +100,55 @@ def create_app() -> Flask:
         # Server-rendered landing/signup page.
         return render_template("index.html")
 
+    @app.get("/setup")
+    def setup_page():
+        # Server-rendered setup page, accessed after signup.
+        return render_template("profile.html")
+
     @app.get("/img/<path:filename>")
     def image_asset(filename: str):
         # Serve logo/provider images from repo-level img/.
         return send_from_directory(project_root / "img", filename)
 
-    app.register_blueprint(auth_bp, url_prefix="/api")
+    @app.post('/api/setup')
+    @login_required
+    def profile_setup():
+        # Receives data from http form (xxx-form-urlencoded)
+        data = request.form.to_dict()
+        if not data:
+            raise BadRequest("Form data is required.")
 
+        school = (data.get("school") or "").strip()
+        grad_year = (data.get("classYear") or data.get("grad_year") or "").strip()
+        major = (data.get("major") or "").strip()
+        courses_raw = data.get("courses") or ""
+
+        if not major or not grad_year:
+            raise BadRequest("major and classYear are required.")
+
+        courses = [item.strip() for item in str(courses_raw).split(",") if item.strip()]
+        nyu_school = [school] if school else []
+
+        updated = update_user_profile(
+            current_user.id,
+            {
+                "major": major,
+                "grad_year": grad_year,
+                "courses": courses,
+                "school": nyu_school,
+            },
+        )
+        if not updated:
+            raise NotFound("User not found.")
+        
+        print('User profile data saved.')
+        return redirect(url_for("static", filename="dashboard.html"))
+
+
+    # Register auth routes
+    app.register_blueprint(auth_bp, url_prefix="/api")
+    
+    # -- API Routes for threads --
     @app.get("/api/threads")
     def api_list_threads():
         # Supports pagination and optional text/tag filtering.

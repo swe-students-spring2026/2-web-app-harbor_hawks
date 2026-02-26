@@ -12,10 +12,9 @@
     <button id="h">←</button>
   </a>
   <h1 class="header">Complete Your Profile</h1>
-  <p class="tagline">Tell us a bit about your academic journey</p>
+  <p class="tagline">Tell us a bit about your academic journey at NYU</p>
 
-  <form action="dashboard.html" method="get">
-
+  <form method="POST" action="{{ url_for('profile_setup') }}">
     <div class="form-group">
       <!-- <label for="school">School</label> -->
       <select id="school" name="school" required>

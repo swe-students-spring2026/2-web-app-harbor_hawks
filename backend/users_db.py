@@ -63,7 +63,7 @@ def update_user_profile(user_id, patch):
     """
     db = get_db()
 
-    allowed = {"major", "interests", "courses", "grad_year"}
+    allowed = {"major", "school", "courses", "grad_year"}
     patch = dict(patch)
     clean = {k: patch[k] for k in patch if k in allowed}
 
@@ -81,7 +81,7 @@ def update_user_profile(user_id, patch):
         {"_id": _oid(user_id)},
         {"$set": set_payload},
     )
-    return res.modified_count == 1
+    return res.matched_count == 1
 
 def create_user_with_password(email, password, display_name=None):
     """
