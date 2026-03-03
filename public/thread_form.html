@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% if mode == "edit" %}Edit Thread{% else %}New Thread{% endif %}</title>
+  <link rel="stylesheet" href="/main.css" />
+</head>
+<body>
+  <h1 class="header">StudentLink</h1>
+
+  <div class="container">
+    <h2>{% if mode == "edit" %}Edit Thread{% else %}Create a Thread{% endif %}</h2>
+
+    <form method="post">
+      <div class="form-group">
+        <input
+          name="title"
+          type="text"
+          required
+          placeholder="Title"
+          value="{{ thread.title if thread else '' }}"
+        />
+      </div>
+
+      <div class="form-group">
+        <textarea
+          name="body"
+          required
+          rows="8"
+          placeholder="Write your post..."
+        >{{ thread.body if thread else '' }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <input
+          name="tags"
+          type="text"
+          placeholder="tags (comma separated)"
+          value="{% if thread and thread.tags %}{{ thread.tags | join(', ') }}{% endif %}"
+        />
+      </div>
+
+      <div class="btn">
+        <button class="submit" type="submit">
+          {% if mode == "edit" %}Save{% else %}Post{% endif %}
+        </button>
+      </div>
+    </form>
+
+    <p class="redirect">
+      <a class="link" href="/dashboard">Back to dashboard</a>
+    </p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Edit Comment</title>
+  <link rel="stylesheet" href="/main.css">
+</head>
+<body>
+
+  <h1 class="header">Edit Comment</h1>
+
+  <form method="post" action="/c/{{ comment._id }}/edit">
+    <div class="form-group">
+      <input name="body" required value="{{ comment.body }}">
+    </div>
+    <button class="submit" type="submit">Save</button>
+  </form>
+
+  <a href="/t/{{ comment.thread_id }}"><button class="logo-btn" type="button">Cancel</button></a>
+
+</body>
+</html>
