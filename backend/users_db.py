@@ -63,7 +63,7 @@ def update_user_profile(user_id, patch):
     """
     db = get_db()
 
-    allowed = {"major", "school", "courses", "grad_year"}
+    allowed = {"major", "school", "interests", "courses", "grad_year"}
     patch = dict(patch)
     clean = {k: patch[k] for k in patch if k in allowed}
 
@@ -81,6 +81,40 @@ def update_user_profile(user_id, patch):
         {"_id": _oid(user_id)},
         {"$set": set_payload},
     )
+    return res.matched_count == 1
+
+
+def update_user_account(user_id, patch):
+    """
+    Update top-level account fields for a user.
+
+    patch can include: display_name, email, password
+    """
+    db = get_db()
+
+    patch = dict(patch)
+    clean = {}
+
+    if "display_name" in patch and isinstance(patch["display_name"], str):
+        name = patch["display_name"].strip()
+        if name:
+            clean["display_name"] = name
+
+    if "email" in patch and isinstance(patch["email"], str):
+        email = patch["email"].strip().lower()
+        if email:
+            clean["email"] = email
+
+    if "password" in patch and isinstance(patch["password"], str):
+        password = patch["password"]
+        if password:
+            clean["password_hash"] = generate_password_hash(password)
+
+    if not clean:
+        return False
+
+    clean["updated_at"] = datetime.now(timezone.utc)
+    res = db.users.update_one({"_id": _oid(user_id)}, {"$set": clean})
     return res.matched_count == 1
 
 def create_user_with_password(email, password, display_name=None):

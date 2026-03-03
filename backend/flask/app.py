@@ -6,14 +6,15 @@ from datetime import datetime
 from typing import Any
 
 from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
 from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, url_for
 from flask_login import LoginManager, current_user, login_required
-from werkzeug.exceptions import BadRequest, HTTPException, NotFound
+from werkzeug.exceptions import BadRequest, Conflict, HTTPException, NotFound
 
 from backend.flask.auth import bp as auth_bp
 from backend.flask.auth import ensure_user_indexes, load_user_by_id
 from backend.db import get_db
-from backend.users_db import update_user_profile
+from backend.users_db import get_user, update_user_account, update_user_profile
 # import the backend functions for threads that interact with the database
 from backend.threads_db import (
     create_thread,
@@ -40,6 +41,32 @@ def _to_jsonable(value: Any) -> Any:
 
 def _json(payload: Any, status: int = 200):
     return jsonify(_to_jsonable(payload)), status
+
+
+def _profile_form_values(user_doc: dict[str, Any]) -> dict[str, str]:
+    profile = user_doc.get("profile") or {}
+
+    school_raw = profile.get("school") or []
+    if isinstance(school_raw, list):
+        school = school_raw[0] if school_raw else ""
+    elif isinstance(school_raw, str):
+        school = school_raw
+    else:
+        school = ""
+
+    interests = profile.get("interests") or []
+    courses = profile.get("courses") or []
+
+    return {
+        "display_name": str(user_doc.get("display_name") or ""),
+        "email": str(user_doc.get("email") or ""),
+        "school": str(school),
+        "grad_year": str(profile.get("grad_year") or ""),
+        "major": str(profile.get("major") or ""),
+        "interests": ", ".join(str(item).strip() for item in interests if str(item).strip()),
+        "courses": ", ".join(str(item).strip() for item in courses if str(item).strip()),
+    }
+
 
 # Initialize the Flask app and all routes.
 def create_app() -> Flask:
@@ -101,31 +128,118 @@ def create_app() -> Flask:
         return render_template("index.html")
 
     @app.get("/setup")
+    @login_required
     def setup_page():
-        # Server-rendered setup page, accessed after signup.
-        return render_template("profile.html")
+        # Server-rendered setup page, accessed after signup/login.
+        user_doc = get_user(current_user.id)
+        if not user_doc:
+            raise NotFound("User not found.")
+        return render_template(
+            "setup.html",
+            page_mode="setup",
+            account_status=request.args.get("account_status", ""),
+            profile_status=request.args.get("profile_status", ""),
+            **_profile_form_values(user_doc),
+        )
+
+    @app.get("/profile")
+    @login_required
+    def profile_page():
+        # Account/profile settings page.
+        user_doc = get_user(current_user.id)
+        if not user_doc:
+            raise NotFound("User not found.")
+        return render_template(
+            "profile.html",
+            page_mode="profile",
+            account_status=request.args.get("account_status", ""),
+            profile_status=request.args.get("profile_status", ""),
+            **_profile_form_values(user_doc),
+        )
+
+    @app.get("/logout")
+    def logout_page():
+        # Server-rendered logout page that calls auth logout endpoint.
+        return render_template("logout.html")
 
     @app.get("/img/<path:filename>")
     def image_asset(filename: str):
         # Serve logo/provider images from repo-level img/.
         return send_from_directory(project_root / "img", filename)
 
-    @app.post('/api/setup')
+    @app.post("/api/account")
     @login_required
-    def profile_setup():
-        # Receives data from http form (xxx-form-urlencoded)
-        data = request.form.to_dict()
+    def account_update():
+        # Receives account updates from JSON clients or browser form posts.
+        is_json_request = request.is_json
+        data = request.get_json(silent=True) if is_json_request else request.form.to_dict()
+        data = data or {}
+
+        display_name = (data.get("display_name") or data.get("fullName") or "").strip()
+        email = (data.get("email") or "").strip().lower()
+        password = data.get("password") or ""
+
+        patch = {}
+        if display_name:
+            patch["display_name"] = display_name
+        if email:
+            patch["email"] = email
+        if password:
+            patch["password"] = password
+
+        if not patch:
+            raise BadRequest("At least one of display_name, email, or password is required.")
+
+        try:
+            updated = update_user_account(current_user.id, patch)
+        except DuplicateKeyError as exc:
+            if not is_json_request:
+                return redirect(url_for("profile_page", account_status="email_taken"))
+            raise Conflict("That email is already in use.") from exc
+
+        if not updated:
+            raise NotFound("User not found.")
+
+        if not is_json_request:
+            return redirect(url_for("profile_page", account_status="saved"))
+
+        updated_user = get_user(current_user.id)
+        if not updated_user:
+            raise NotFound("User not found.")
+        return _json(
+            {
+                "ok": True,
+                "user": {
+                    "id": str(updated_user["_id"]),
+                    "display_name": updated_user.get("display_name"),
+                    "email": updated_user.get("email"),
+                },
+            }
+        )
+
+    # Setup/profile submit endpoint.
+    @app.post("/api/setup", endpoint="profile_setup")
+    @app.post("/api/setup", endpoint="setup_submit")
+    @login_required
+    def setup_submit():
+        # Receives profile updates from JSON clients or browser form posts.
+        is_json_request = request.is_json
+        data = request.get_json(silent=True) if is_json_request else request.form.to_dict()
+        data = data or {}
         if not data:
             raise BadRequest("Form data is required.")
 
         school = (data.get("school") or "").strip()
         grad_year = (data.get("classYear") or data.get("grad_year") or "").strip()
         major = (data.get("major") or "").strip()
+        interests_raw = data.get("interests") or ""
         courses_raw = data.get("courses") or ""
+        next_target = (data.get("next") or "").strip().lower()
 
         if not major or not grad_year:
             raise BadRequest("major and classYear are required.")
 
+        interests = [item.strip() for item in str(interests_raw).split(",") if item.strip()]
         courses = [item.strip() for item in str(courses_raw).split(",") if item.strip()]
         nyu_school = [school] if school else []
 
@@ -134,15 +248,20 @@ def create_app() -> Flask:
             {
                 "major": major,
                 "grad_year": grad_year,
+                "interests": interests,
                 "courses": courses,
                 "school": nyu_school,
             },
         )
         if not updated:
             raise NotFound("User not found.")
-        
-        print('User profile data saved.')
-        return redirect(url_for("static", filename="dashboard.html"))
+
+        if not is_json_request:
+            if next_target == "dashboard":
+                return redirect(url_for("static", filename="dashboard.html"))
+            return redirect(url_for("profile_page", profile_status="saved"))
+
+        return _json({"ok": True})
 
 
     # Register auth routes

@@ -5,7 +5,7 @@ from typing import Any
 
 from bson import ObjectId
 from flask import Blueprint, jsonify, redirect, request, url_for
-from flask_login import UserMixin, current_user, login_required, login_user, logout_user
+from flask_login import UserMixin, current_user, login_user, logout_user
 from werkzeug.exceptions import BadRequest, Conflict, Unauthorized
 from backend.users_db import (
     authenticate_user,
@@ -101,8 +101,12 @@ def login():
 
 
 @bp.post("/auth/logout")
-@login_required
 def logout():
-    # Clear current session cookie.
+    # Clear current session cookie and support browser form posts.
+    is_json_request = request.is_json
     logout_user()
+
+    if not is_json_request:
+        return redirect(url_for("signup_page"))
+
     return jsonify({"ok": True})
