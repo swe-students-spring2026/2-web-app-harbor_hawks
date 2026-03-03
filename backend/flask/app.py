@@ -105,11 +105,17 @@ def create_app() -> Flask:
         # Server-rendered setup page, accessed after signup.
         return render_template("profile.html")
 
+    @app.get("/logout")
+    def logout_page():
+        # Server-rendered logout page that calls auth logout endpoint.
+        return render_template("logout.html")
+
     @app.get("/img/<path:filename>")
     def image_asset(filename: str):
         # Serve logo/provider images from repo-level img/.
         return send_from_directory(project_root / "img", filename)
 
+    # API Endpoint for profile setup, receiving data from /setup
     @app.post('/api/setup')
     @login_required
     def profile_setup():
@@ -121,11 +127,13 @@ def create_app() -> Flask:
         school = (data.get("school") or "").strip()
         grad_year = (data.get("classYear") or data.get("grad_year") or "").strip()
         major = (data.get("major") or "").strip()
+        interests_raw = data.get("interests") or ""
         courses_raw = data.get("courses") or ""
 
         if not major or not grad_year:
             raise BadRequest("major and classYear are required.")
 
+        interests = [item.strip() for item in str(interests_raw).split(",") if item.strip()]
         courses = [item.strip() for item in str(courses_raw).split(",") if item.strip()]
         nyu_school = [school] if school else []
 
@@ -134,6 +142,7 @@ def create_app() -> Flask:
             {
                 "major": major,
                 "grad_year": grad_year,
+                "interests": interests,
                 "courses": courses,
                 "school": nyu_school,
             },

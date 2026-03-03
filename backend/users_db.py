@@ -63,7 +63,7 @@ def update_user_profile(user_id, patch):
     """
     db = get_db()
 
-    allowed = {"major", "school", "courses", "grad_year"}
+    allowed = {"major", "school", "interests", "courses", "grad_year"}
     patch = dict(patch)
     clean = {k: patch[k] for k in patch if k in allowed}
 

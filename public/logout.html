@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logging Out</title>
+  <link rel="stylesheet" href="main.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <h1 class="header">StudentLink</h1>
+  <p id="logout-status" class="tagline">Signing you out...</p>
+
+  <div class="btn" style="margin-top: 16px;">
+    <a href="/" class="submit" style="text-align: center;">Return Home</a>
+  </div>
+
+  <script>
+    (async function logoutAndRedirect() {
+      const statusEl = document.getElementById("logout-status");
+
+      try {
+        const res = await fetch("/api/auth/logout", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json"
+          }
+        });
+
+        if (!res.ok && res.status !== 401) {
+          throw new Error("Logout request failed.");
+        }
+      } catch (err) {
+        statusEl.textContent = "Could not confirm logout. Returning home...";
+      }
+
+      window.location.replace("/");
+    })();
+  </script>
+</body>
+</html>
