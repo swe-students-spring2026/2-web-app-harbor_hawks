@@ -14,7 +14,7 @@
   <h1 class="header">Complete Your Profile</h1>
   <p class="tagline">Tell us a bit about your academic journey at NYU</p>
 
-  <form method="POST" action="{{ url_for('profile_setup') }}">
+  <form method="POST" action="{{ url_for('setup_submit') }}">
     <div class="form-group">
       <!-- <label for="school">School</label> -->
       <select id="school" name="school" required>
@@ -54,6 +54,8 @@
       <!-- <label for="courses">Current Courses</label> -->
       <input id="courses" name="courses" type="text" placeholder="e.g. Algorithms, OS, Linear Algebra">
     </div>
+
+    <input type="hidden" name="next" value="dashboard">
 
     <div class="btn">
       <button type="submit" class="submit">
