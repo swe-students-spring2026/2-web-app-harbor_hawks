@@ -75,8 +75,8 @@ def register():
     login_user(user)
 
     if not is_json_request:
-        # Browser form flow: continue to profile page.
-        return redirect(url_for("static", filename="profile.html"))
+        # Browser form flow: continue to profile setup page.
+        return redirect(url_for("setup_page"))
 
     return jsonify({"ok": True, "user": user.to_json()}), 201
 
