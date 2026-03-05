@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from bson import ObjectId
-from db import get_db
+from backend.db import get_db
 
 
 def _oid(x):
@@ -51,6 +51,21 @@ def delete_comment(comment_id, author_id):
     res = db.comments.delete_one({"_id": _oid(comment_id), "author_id": _oid(author_id)})
     return res.deleted_count == 1
 
+def update_comment(comment_id, author_id, body):
+    """
+    Update a comment body.
+
+    Permission:
+    - Only the author can edit their own comment.
+    """
+    db = get_db()
+    now = datetime.now(timezone.utc)
+
+    res = db.comments.update_one(
+        {"_id": _oid(comment_id), "author_id": _oid(author_id)},
+        {"$set": {"body": body.strip(), "updated_at": now}},
+    )
+    return res.modified_count == 1
 
 def ensure_comment_indexes():
     """Create indexes for the comments collection."""

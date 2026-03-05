@@ -6,15 +6,13 @@ from datetime import datetime
 from typing import Any
 
 from bson import ObjectId
-from pymongo.errors import DuplicateKeyError
-from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, url_for
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_login import LoginManager, current_user, login_required
-from werkzeug.exceptions import BadRequest, Conflict, HTTPException, NotFound
+from werkzeug.exceptions import BadRequest, HTTPException, NotFound
 
 from backend.flask.auth import bp as auth_bp
 from backend.flask.auth import ensure_user_indexes, load_user_by_id
 from backend.db import get_db
-from backend.users_db import get_user, update_user_account, update_user_profile
 # import the backend functions for threads that interact with the database
 from backend.threads_db import (
     create_thread,
@@ -23,6 +21,13 @@ from backend.threads_db import (
     list_threads,
     search_threads,
     update_thread,
+)
+
+from backend.comments_db import (
+    list_comments,
+    add_comment,
+    update_comment,
+    delete_comment,
 )
 
 
@@ -41,32 +46,6 @@ def _to_jsonable(value: Any) -> Any:
 
 def _json(payload: Any, status: int = 200):
     return jsonify(_to_jsonable(payload)), status
-
-
-def _profile_form_values(user_doc: dict[str, Any]) -> dict[str, str]:
-    profile = user_doc.get("profile") or {}
-
-    school_raw = profile.get("school") or []
-    if isinstance(school_raw, list):
-        school = school_raw[0] if school_raw else ""
-    elif isinstance(school_raw, str):
-        school = school_raw
-    else:
-        school = ""
-
-    interests = profile.get("interests") or []
-    courses = profile.get("courses") or []
-
-    return {
-        "display_name": str(user_doc.get("display_name") or ""),
-        "email": str(user_doc.get("email") or ""),
-        "school": str(school),
-        "grad_year": str(profile.get("grad_year") or ""),
-        "major": str(profile.get("major") or ""),
-        "interests": ", ".join(str(item).strip() for item in interests if str(item).strip()),
-        "courses": ", ".join(str(item).strip() for item in courses if str(item).strip()),
-    }
-
 
 # Initialize the Flask app and all routes.
 def create_app() -> Flask:
@@ -127,147 +106,13 @@ def create_app() -> Flask:
         # Server-rendered landing/signup page.
         return render_template("index.html")
 
-    @app.get("/setup")
-    @login_required
-    def setup_page():
-        # Server-rendered setup page, accessed after signup/login.
-        user_doc = get_user(current_user.id)
-        if not user_doc:
-            raise NotFound("User not found.")
-        return render_template(
-            "setup.html",
-            page_mode="setup",
-            account_status=request.args.get("account_status", ""),
-            profile_status=request.args.get("profile_status", ""),
-            **_profile_form_values(user_doc),
-        )
-
-    @app.get("/profile")
-    @login_required
-    def profile_page():
-        # Account/profile settings page.
-        user_doc = get_user(current_user.id)
-        if not user_doc:
-            raise NotFound("User not found.")
-        return render_template(
-            "profile.html",
-            page_mode="profile",
-            account_status=request.args.get("account_status", ""),
-            profile_status=request.args.get("profile_status", ""),
-            **_profile_form_values(user_doc),
-        )
-
-    @app.get("/logout")
-    def logout_page():
-        # Server-rendered logout page that calls auth logout endpoint.
-        return render_template("logout.html")
-
     @app.get("/img/<path:filename>")
     def image_asset(filename: str):
         # Serve logo/provider images from repo-level img/.
         return send_from_directory(project_root / "img", filename)
 
-    @app.post("/api/account")
-    @login_required
-    def account_update():
-        # Receives account updates from JSON clients or browser form posts.
-        is_json_request = request.is_json
-        data = request.get_json(silent=True) if is_json_request else request.form.to_dict()
-        data = data or {}
-
-        display_name = (data.get("display_name") or data.get("fullName") or "").strip()
-        email = (data.get("email") or "").strip().lower()
-        password = data.get("password") or ""
-
-        patch = {}
-        if display_name:
-            patch["display_name"] = display_name
-        if email:
-            patch["email"] = email
-        if password:
-            patch["password"] = password
-
-        if not patch:
-            raise BadRequest("At least one of display_name, email, or password is required.")
-
-        try:
-            updated = update_user_account(current_user.id, patch)
-        except DuplicateKeyError as exc:
-            if not is_json_request:
-                return redirect(url_for("profile_page", account_status="email_taken"))
-            raise Conflict("That email is already in use.") from exc
-
-        if not updated:
-            raise NotFound("User not found.")
-
-        if not is_json_request:
-            return redirect(url_for("profile_page", account_status="saved"))
-
-        updated_user = get_user(current_user.id)
-        if not updated_user:
-            raise NotFound("User not found.")
-        return _json(
-            {
-                "ok": True,
-                "user": {
-                    "id": str(updated_user["_id"]),
-                    "display_name": updated_user.get("display_name"),
-                    "email": updated_user.get("email"),
-                },
-            }
-        )
-
-    # Setup/profile submit endpoint.
-    @app.post("/api/setup", endpoint="profile_setup")
-    @app.post("/api/setup", endpoint="setup_submit")
-    @login_required
-    def setup_submit():
-        # Receives profile updates from JSON clients or browser form posts.
-        is_json_request = request.is_json
-        data = request.get_json(silent=True) if is_json_request else request.form.to_dict()
-        data = data or {}
-        if not data:
-            raise BadRequest("Form data is required.")
-
-        school = (data.get("school") or "").strip()
-        grad_year = (data.get("classYear") or data.get("grad_year") or "").strip()
-        major = (data.get("major") or "").strip()
-        interests_raw = data.get("interests") or ""
-        courses_raw = data.get("courses") or ""
-        next_target = (data.get("next") or "").strip().lower()
-
-        if not major or not grad_year:
-            raise BadRequest("major and classYear are required.")
-
-        interests = [item.strip() for item in str(interests_raw).split(",") if item.strip()]
-        courses = [item.strip() for item in str(courses_raw).split(",") if item.strip()]
-        nyu_school = [school] if school else []
-
-        updated = update_user_profile(
-            current_user.id,
-            {
-                "major": major,
-                "grad_year": grad_year,
-                "interests": interests,
-                "courses": courses,
-                "school": nyu_school,
-            },
-        )
-        if not updated:
-            raise NotFound("User not found.")
-
-        if not is_json_request:
-            if next_target == "dashboard":
-                return redirect(url_for("static", filename="dashboard.html"))
-            return redirect(url_for("profile_page", profile_status="saved"))
-
-        return _json({"ok": True})
-
-
-    # Register auth routes
     app.register_blueprint(auth_bp, url_prefix="/api")
-    
-    # -- API Routes for threads --
+
     @app.get("/api/threads")
     def api_list_threads():
         # Supports pagination and optional text/tag filtering.
@@ -287,17 +132,17 @@ def create_app() -> Flask:
         return _json({"items": threads, "limit": limit, "skip": skip})
 
     @app.post("/api/threads")
+    @login_required
     def api_create_thread():
-        # Thread create remains JSON-only.
         data = request.get_json(silent=True) or {}
 
-        author_id = data.get("author_id") or ObjectId()
-        author_display_name = data.get("author_display_name")
         title = data.get("title")
         body = data.get("body")
-
-        if not author_display_name or not title or not body:
-            raise BadRequest("author_display_name, title, and body are required.")
+        if not title or not body:
+            raise BadRequest("title and body are required.")
+        
+        author_id = current_user.id
+        author_display_name = current_user.display_name or current_user.email
 
         thread = create_thread(
             author_id=author_id,
@@ -317,23 +162,41 @@ def create_app() -> Flask:
         except Exception as exc:
             raise BadRequest("Invalid thread_id.") from exc
 
-        if not thread:
+        if not thread:              
             raise NotFound("Thread not found.")
         return _json(thread)
 
-    @app.patch("/api/threads/<thread_id>")
-    def api_update_thread(thread_id: str):
-        # Author id is required to enforce ownership.
-        data = request.get_json(silent=True) or {}
-        author_id = data.get("author_id")
-        if not author_id:
-            raise BadRequest("author_id is required for updates.")
-
-        patch = {k: v for k, v in data.items() if k != "author_id"}
+    @app.get("/t/<thread_id>")
+    def page_thread(thread_id: str):
         try:
-            ok = update_thread(thread_id=thread_id, author_id=author_id, patch=patch)
+            thread = get_thread(thread_id)
         except Exception as exc:
-            raise BadRequest("Invalid thread_id or author_id.") from exc
+            raise BadRequest("Invalid thread_id.") from exc
+
+        if not thread:
+            raise NotFound("Thread not found.")
+
+        comments = list_comments(thread_id, limit=200, skip=0)  # 你已有 comments_db.list_comments
+        is_owner = current_user.is_authenticated and str(current_user.id) == str(thread.get("author_id"))
+
+        return render_template(
+            "thread.html",
+            thread=thread,
+            comments=comments,
+            is_owner=is_owner,
+        )
+
+    @app.patch("/api/threads/<thread_id>")
+    @login_required
+    def api_update_thread(thread_id: str):
+        data = request.get_json(silent=True) or {}
+
+        patch = {k: v for k, v in data.items() if k in {"title", "body", "tags", "photo_ids"}}
+
+        try:
+            ok = update_thread(thread_id=thread_id, author_id=current_user.id, patch=patch)
+        except Exception as exc:
+            raise BadRequest("Invalid thread_id.") from exc
 
         if not ok:
             raise NotFound("Thread not found (or you are not the author).")
@@ -341,32 +204,161 @@ def create_app() -> Flask:
         return _json(get_thread(thread_id))
 
     @app.delete("/api/threads/<thread_id>")
+    @login_required
     def api_delete_thread(thread_id: str):
-        # Delete also enforces author ownership.
-        data = request.get_json(silent=True) or {}
-        author_id = data.get("author_id")
-        if not author_id:
-            raise BadRequest("author_id is required for deletes.")
-
         try:
-            ok = delete_thread(thread_id=thread_id, author_id=author_id)
+            ok = delete_thread(thread_id=thread_id, author_id=current_user.id)
         except Exception as exc:
-            raise BadRequest("Invalid thread_id or author_id.") from exc
+            raise BadRequest("Invalid thread_id.") from exc
 
         if not ok:
             raise NotFound("Thread not found (or you are not the author).")
-        return _json({"ok": True})
 
-    try:
-        ensure_user_indexes()
-    except Exception:
-        # Keep the server booting even if MongoDB isn't running yet.
-        pass
+        return _json({"ok": True})
 
     return app
 
 
 app = create_app()
+
+@app.get("/dashboard")
+@login_required
+def dashboard_page():
+    # Optional: allow browsing even if not logged in
+    q = request.args.get("q")
+    tag = request.args.get("tag")
+    if q or tag:
+        items = search_threads(q=q, tag=tag, limit=50, skip=0)
+    else:
+        items = list_threads(limit=50, skip=0)
+    return render_template("dashboard.html", threads=items, q=q or "", tag=tag or "")
+
+
+@app.get("/t/<thread_id>")
+def thread_page(thread_id: str):
+    thread = get_thread(thread_id)
+    if not thread:
+        raise NotFound("Thread not found.")
+    comments = list_comments(thread_id, limit=200, skip=0)
+    return render_template("thread.html", thread=thread, comments=comments)
+
+
+@app.route("/t/new", methods=["GET", "POST"])
+@login_required
+def thread_new_page():
+    if request.method == "GET":
+        return render_template("thread_form.html", mode="new", thread=None)
+
+    title = (request.form.get("title") or "").strip()
+    body = (request.form.get("body") or "").strip()
+    tags_raw = (request.form.get("tags") or "").strip()
+
+    if not title or not body:
+        raise BadRequest("title and body are required.")
+
+    tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+
+    doc = create_thread(
+        author_id=current_user.id,
+        author_display_name=current_user.display_name or current_user.email,
+        title=title,
+        body=body,
+        tags=tags,
+        photo_ids=[],
+    )
+    return render_template("redirect.html", to=f"/t/{doc['_id']}")
+
+
+@app.route("/t/<thread_id>/edit", methods=["GET", "POST"])
+@login_required
+def thread_edit_page(thread_id: str):
+    thread = get_thread(thread_id)
+    if not thread:
+        raise NotFound("Thread not found.")
+
+    # ownership check (thread['author_id'] is ObjectId)
+    if str(thread.get("author_id")) != str(current_user.id):
+        raise NotFound("Thread not found (or you are not the author).")
+
+    if request.method == "GET":
+        return render_template("thread_form.html", mode="edit", thread=thread)
+
+    title = (request.form.get("title") or "").strip()
+    body = (request.form.get("body") or "").strip()
+    tags_raw = (request.form.get("tags") or "").strip()
+    tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+
+    ok = update_thread(thread_id=thread_id, author_id=current_user.id, patch={
+        "title": title,
+        "body": body,
+        "tags": tags,
+    })
+    if not ok:
+        raise NotFound("Thread not found (or you are not the author).")
+
+    return render_template("redirect.html", to=f"/t/{thread_id}")
+
+
+@app.post("/t/<thread_id>/delete")
+@login_required
+def thread_delete_page(thread_id: str):
+    ok = delete_thread(thread_id=thread_id, author_id=current_user.id)
+    if not ok:
+        raise NotFound("Thread not found (or you are not the author).")
+    return render_template("redirect.html", to="/dashboard")
+
+
+@app.post("/t/<thread_id>/comment")
+@login_required
+def comment_add_page(thread_id: str):
+    body = (request.form.get("body") or "").strip()
+    if not body:
+        raise BadRequest("comment body required.")
+
+    add_comment(
+        thread_id=thread_id,
+        author_id=current_user.id,
+        author_display_name=current_user.display_name or current_user.email,
+        body=body,
+    )
+    return render_template("redirect.html", to=f"/t/{thread_id}")
+
+
+@app.route("/c/<comment_id>/edit", methods=["GET", "POST"])
+@login_required
+def comment_edit_page(comment_id: str):
+    # We don’t have get_comment() in DB layer, so fetch via query:
+    db = get_db()
+    c = db.comments.find_one({"_id": ObjectId(comment_id)})
+    if not c:
+        raise NotFound("Comment not found.")
+    if str(c.get("author_id")) != str(current_user.id):
+        raise NotFound("Comment not found (or you are not the author).")
+
+    if request.method == "GET":
+        return render_template("comment_form.html", comment=c)
+
+    body = (request.form.get("body") or "").strip()
+    ok = update_comment(comment_id=comment_id, author_id=current_user.id, body=body)
+    if not ok:
+        raise NotFound("Comment not found (or you are not the author).")
+
+    return render_template("redirect.html", to=f"/t/{c['thread_id']}")
+
+
+@app.post("/c/<comment_id>/delete")
+@login_required
+def comment_delete_page(comment_id: str):
+    db = get_db()
+    c = db.comments.find_one({"_id": ObjectId(comment_id)})
+    if not c:
+        raise NotFound("Comment not found.")
+
+    ok = delete_comment(comment_id=comment_id, author_id=current_user.id)
+    if not ok:
+        raise NotFound("Comment not found (or you are not the author).")
+
+    return render_template("redirect.html", to=f"/t/{c['thread_id']}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="main.css">
+</head>
+<body>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+    <h1 class="header" style="margin:0;">Dashboard</h1>
+
+    <form method="post" action="/api/auth/logout">
+      <button class="logo-btn" type="submit">Logout</button>
+    </form>
+  </div>
+
+  <div style="margin: 12px 0;">
+    <form method="get" action="/dashboard">
+      <div class="form-group">
+        <input name="q" placeholder="Search..." value="{{ q }}">
+      </div>
+      <div class="form-group">
+        <input name="tag" placeholder="Tag filter..." value="{{ tag }}">
+      </div>
+      <button class="submit" type="submit">Search</button>
+    </form>
+  </div>
+
+  <div style="margin: 12px 0;">
+    <a href="/t/new"><button class="submit" type="button">+ New Thread</button></a>
+  </div>
+
+  {% if threads|length == 0 %}
+    <p>No threads found.</p>
+  {% endif %}
+
+  {% for t in threads %}
+    <div style="background: var(--surface-2); border-radius: 14px; padding: 12px; margin-bottom: 10px;">
+      <a href="/t/{{ t._id }}">
+        <div style="font-weight:800; font-size:16px;">{{ t.title }}</div>
+      </a>
+      <div style="color:#6a7075; font-size:12px;">
+        by {{ t.author_display_name }}
+      </div>
+      <div style="margin-top:6px;">
+        {% for tag in t.tags %}
+          <span style="font-size:12px; background: rgba(19,139,235,0.10); padding:4px 8px; border-radius:999px;">
+            #{{ tag }}
+          </span>
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+
+</body>
+</html>
