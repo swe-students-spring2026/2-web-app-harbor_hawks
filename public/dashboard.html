@@ -10,9 +10,14 @@
   <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
     <h1 class="header" style="margin:0;">Dashboard</h1>
 
-    <form method="post" action="/api/auth/logout">
-      <button class="logo-btn" type="submit">Logout</button>
-    </form>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <form method="get" action="/profile">
+        <button class="logo-btn" type="submit">Profile</button>
+      </form>
+      <form method="post" action="/api/auth/logout">
+        <button class="logo-btn" type="submit">Logout</button>
+      </form>
+    </div>
   </div>
 
   <div style="margin: 12px 0;">

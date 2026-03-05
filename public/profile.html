@@ -3,61 +3,97 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Profile</title>
-  <link rel="stylesheet" href="main.css">
+  <title>Profile Settings</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-
 <body>
-  <a href="index.html">
-    <button id="h">←</button>
+  <a href="{{ url_for('dashboard_page') if page_mode == 'profile' else url_for('signup_page') }}">
+    <button id="h" type="button">←</button>
   </a>
-  <h1 class="header">Complete Your Profile</h1>
-  <p class="tagline">Tell us a bit about your academic journey</p>
 
-  <form action="dashboard.html" method="get">
-  <form action="/dashboard" method="get"></form>
+  <h1 class="header">{{ "Complete Your Profile" if page_mode == "setup" else "Profile Settings" }}</h1>
+  <p class="tagline">{{ "Tell us a bit about your academic journey at NYU" if page_mode == "setup" else "Update your account and profile information" }}</p>
 
+  {% if account_status == "saved" %}
+    <p class="tagline" role="status">Account information updated.</p>
+  {% elif account_status == "email_taken" %}
+    <p class="tagline" role="status">That email is already in use.</p>
+  {% endif %}
+  {% if profile_status == "saved" %}
+    <p class="tagline" role="status">Profile information updated.</p>
+  {% endif %}
+
+  <h2>Account Info</h2>
+  <form method="POST" action="{{ url_for('account_update') }}">
     <div class="form-group">
-      <!-- <label for="school">School</label> -->
-      <select id="school" name="school" required>
-        <option value="" disabled selected>Select your school</option>
-        <option value="cas">College of Arts & Science</option>
-        <option value="stern">Stern School of Business</option>
-        <option value="tisch">Tisch School of the Arts</option>
-        <option value="tandon">Tandon School of Engineering</option>
-        <option value="steinhardt">Steinhardt</option>
-        <option value="gallatin">Gallatin School of Individualized Study</option>
-        <option value="sps">School of Professional Studies</option>
-      </select>
+      <input id="display_name" name="display_name" type="text" placeholder="Name" value="{{ display_name|e }}" required>
     </div>
 
     <div class="form-group">
-      <!-- <label for="classYear">Class Year</label> -->
-      <select id="classYear" name="classYear" required>
-        <option value="" disabled selected>Select your year</option>
-        <option value="2026">Class of 2026</option>
-        <option value="2027">Class of 2027</option>
-        <option value="2028">Class of 2028</option>
-        <option value="2029">Class of 2029</option>
-      </select>
+      <input id="email" name="email" type="email" placeholder="Email" value="{{ email|e }}" required>
     </div>
 
     <div class="form-group">
-      <!-- <label for="major">Major</label> -->
-      <input id="major" name="major" type="text" placeholder="Enter your major" required>
+      <input id="password" name="password" type="password" placeholder="New password (optional)">
     </div>
 
-    <div class="form-group">
-      <!-- <label for="courses">Current Courses</label> -->
-      <input id="courses" name="courses" type="text" placeholder="e.g. Algorithms, OS, Linear Algebra">
-    </div>
+    <input type="hidden" name="next" value="{{ page_mode }}">
 
     <div class="btn">
-      <button type="submit" class="submit">
-        Save Profile
-      </button>
+      <button type="submit" class="submit">Save Account</button>
+    </div>
+  </form>
+
+  <h2>Profile Info</h2>
+  <form method="POST" action="{{ url_for('profile_setup') }}">
+    <div class="form-group">
+      <select id="school" name="school" required>
+        <option value="" disabled {{ 'selected' if not school else '' }}>Select your school</option>
+        <option value="cas" {{ 'selected' if school == 'cas' else '' }}>College of Arts & Science</option>
+        <option value="stern" {{ 'selected' if school == 'stern' else '' }}>Stern School of Business</option>
+        <option value="tisch" {{ 'selected' if school == 'tisch' else '' }}>Tisch School of the Arts</option>
+        <option value="tandon" {{ 'selected' if school == 'tandon' else '' }}>Tandon School of Engineering</option>
+        <option value="steinhardt" {{ 'selected' if school == 'steinhardt' else '' }}>Steinhardt</option>
+        <option value="gallatin" {{ 'selected' if school == 'gallatin' else '' }}>Gallatin School of Individualized Study</option>
+        <option value="sps" {{ 'selected' if school == 'sps' else '' }}>School of Professional Studies</option>
+      </select>
     </div>
 
+    <div class="form-group">
+      <select id="classYear" name="classYear" required>
+        <option value="" disabled {{ 'selected' if not grad_year else '' }}>Select your year</option>
+        <option value="2026" {{ 'selected' if grad_year == '2026' else '' }}>Class of 2026</option>
+        <option value="2027" {{ 'selected' if grad_year == '2027' else '' }}>Class of 2027</option>
+        <option value="2028" {{ 'selected' if grad_year == '2028' else '' }}>Class of 2028</option>
+        <option value="2029" {{ 'selected' if grad_year == '2029' else '' }}>Class of 2029</option>
+        <option value="2030" {{ 'selected' if grad_year == '2030' else '' }}>Class of 2030</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <input id="major" name="major" type="text" placeholder="Enter your major" value="{{ major|e }}" required>
+    </div>
+
+    <div class="form-group">
+      <input id="interests" name="interests" type="text" placeholder="e.g. AI, Startups, Running" value="{{ interests|e }}">
+    </div>
+
+    <div class="form-group">
+      <input id="courses" name="courses" type="text" placeholder="e.g. Algorithms, OS, Linear Algebra" value="{{ courses|e }}">
+    </div>
+
+    <input type="hidden" name="next" value="{{ 'dashboard' if page_mode == 'setup' else 'profile' }}">
+
+    <div class="btn">
+      <button type="submit" class="submit">{{ 'Save and Continue' if page_mode == 'setup' else 'Save Profile' }}</button>
+    </div>
   </form>
+
+  {% if page_mode == 'profile' %}
+    <div class="btn" style="margin-top: 12px; margin-bottom: 12px;">
+      <a href="{{ url_for('logout_page') }}" class="profile-logout">Logout</a>
+    </div>
+  {% endif %}
 </body>
 </html>

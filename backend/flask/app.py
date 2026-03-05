@@ -13,6 +13,12 @@ from werkzeug.exceptions import BadRequest, HTTPException, NotFound
 from backend.flask.auth import bp as auth_bp
 from backend.flask.auth import ensure_user_indexes, load_user_by_id
 from backend.db import get_db
+from backend.users_db import (
+    get_user,
+    get_user_by_email,
+    update_user_account,
+    update_user_profile,
+)
 # import the backend functions for threads that interact with the database
 from backend.threads_db import (
     create_thread,
@@ -46,6 +52,76 @@ def _to_jsonable(value: Any) -> Any:
 
 def _json(payload: Any, status: int = 200):
     return jsonify(_to_jsonable(payload)), status
+
+
+def _csv_to_list(raw: str) -> list[str]:
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _list_to_csv(value: Any) -> str:
+    if isinstance(value, list):
+        return ", ".join(str(item).strip() for item in value if str(item).strip())
+    if isinstance(value, str):
+        return value
+    return ""
+
+
+def _profile_template_context(
+    *,
+    user_id: str,
+    page_mode: str,
+    account_status: str | None = None,
+    profile_status: str | None = None,
+) -> dict[str, Any]:
+    doc = get_user(user_id)
+    if not doc:
+        raise NotFound("User not found.")
+
+    profile = doc.get("profile") or {}
+    return {
+        "page_mode": page_mode,
+        "display_name": doc.get("display_name") or "",
+        "email": doc.get("email") or "",
+        "school": profile.get("school") or "",
+        "grad_year": profile.get("grad_year") or "",
+        "major": profile.get("major") or "",
+        "interests": _list_to_csv(profile.get("interests")),
+        "courses": _list_to_csv(profile.get("courses")),
+        "account_status": account_status,
+        "profile_status": profile_status,
+    }
+
+
+def _submit_profile_form():
+    school = (request.form.get("school") or "").strip()
+    grad_year = (request.form.get("grad_year") or request.form.get("classYear") or "").strip()
+    major = (request.form.get("major") or "").strip()
+    interests = _csv_to_list(request.form.get("interests") or "")
+    courses = _csv_to_list(request.form.get("courses") or "")
+    next_page = (request.form.get("next") or "profile").strip().lower()
+
+    if not school or not grad_year or not major:
+        raise BadRequest("school, classYear, and major are required.")
+
+    ok = update_user_profile(
+        user_id=current_user.id,
+        patch={
+            "school": school,
+            "grad_year": grad_year,
+            "major": major,
+            "interests": interests,
+            "courses": courses,
+        },
+    )
+    if not ok:
+        raise NotFound("User not found.")
+
+    if next_page == "dashboard":
+        return render_template("redirect.html", to="/dashboard")
+    if next_page == "setup":
+        return render_template("redirect.html", to="/setup?profile_status=saved")
+    return render_template("redirect.html", to="/profile?profile_status=saved")
+
 
 # Initialize the Flask app and all routes.
 def create_app() -> Flask:
@@ -220,6 +296,90 @@ def create_app() -> Flask:
 
 
 app = create_app()
+
+@app.get("/login")
+def login_page():
+    return render_template("login.html")
+
+
+@app.get("/setup")
+@login_required
+def setup_page():
+    return render_template(
+        "setup.html",
+        **_profile_template_context(
+            user_id=current_user.id,
+            page_mode="setup",
+            account_status=request.args.get("account_status"),
+            profile_status=request.args.get("profile_status"),
+        ),
+    )
+
+
+@app.post("/setup")
+@login_required
+def setup_submit():
+    return _submit_profile_form()
+
+
+@app.get("/profile")
+@login_required
+def profile_page():
+    return render_template(
+        "profile.html",
+        **_profile_template_context(
+            user_id=current_user.id,
+            page_mode="profile",
+            account_status=request.args.get("account_status"),
+            profile_status=request.args.get("profile_status"),
+        ),
+    )
+
+
+@app.post("/profile/setup")
+@login_required
+def profile_setup():
+    return _submit_profile_form()
+
+
+@app.post("/profile/account")
+@login_required
+def account_update():
+    display_name = (request.form.get("display_name") or "").strip()
+    email = (request.form.get("email") or "").strip().lower()
+    password = request.form.get("password") or ""
+    next_page = (request.form.get("next") or "profile").strip().lower()
+
+    if not display_name or not email:
+        raise BadRequest("display_name and email are required.")
+
+    existing = get_user_by_email(email)
+    if existing and str(existing["_id"]) != str(current_user.id):
+        if next_page == "setup":
+            return render_template("redirect.html", to="/setup?account_status=email_taken")
+        return render_template("redirect.html", to="/profile?account_status=email_taken")
+
+    ok = update_user_account(
+        user_id=current_user.id,
+        patch={
+            "display_name": display_name,
+            "email": email,
+            "password": password,
+        },
+    )
+    if not ok:
+        raise NotFound("User not found.")
+
+    if next_page == "setup":
+        return render_template("redirect.html", to="/setup?account_status=saved")
+    return render_template("redirect.html", to="/profile?account_status=saved")
+
+
+@app.get("/logout")
+@login_required
+def logout_page():
+    return render_template("logout.html")
+
 
 @app.get("/dashboard")
 @login_required
