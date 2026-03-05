@@ -84,6 +84,10 @@ label{
   opacity: 0.5;
 }
 
+.logout-danger {
+  background-color: #dc2626;
+}
+
 .profile-logout {
   background-color: #dc2626;
   color: #ffffff;
