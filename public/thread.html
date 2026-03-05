@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ thread.title }}</title>
+  <link rel="stylesheet" href="/main.css">
+</head>
+<body>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+    <a href="/dashboard"><button class="logo-btn" type="button">← Back</button></a>
+
+    <form method="post" action="/api/auth/logout">
+      <button class="logo-btn" type="submit">Logout</button>
+    </form>
+  </div>
+
+  <div style="background: var(--surface-2); border-radius: 14px; padding: 14px; margin-top:12px;">
+    <div style="font-weight:900; font-size:20px;">{{ thread.title }}</div>
+    <div style="color:#6a7075; font-size:12px; margin-top:4px;">by {{ thread.author_display_name }}</div>
+    <div style="margin-top:10px; background:#fff; border-radius:14px; padding:14px;">
+      {{ thread.body }}
+    </div>
+
+    {% if current_user.is_authenticated and (current_user.id|string) == (thread.author_id|string) %}
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <a href="/t/{{ thread._id }}/edit"><button class="logo-btn" type="button">Edit</button></a>
+        <form method="post" action="/t/{{ thread._id }}/delete">
+          <button class="logo-btn" type="submit">Delete</button>
+        </form>
+      </div>
+    {% endif %}
+  </div>
+
+  <h2 style="margin-top:18px;">Comments</h2>
+
+  {% for c in comments %}
+    <div style="background: var(--surface-2); border-radius: 14px; padding: 12px; margin-bottom: 10px;">
+      <div style="color:#6a7075; font-size:12px;">{{ c.author_display_name }}</div>
+      <div style="margin-top:6px;">{{ c.body }}</div>
+
+      {% if current_user.is_authenticated and (current_user.id|string) == (c.author_id|string) %}
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <a href="/c/{{ c._id }}/edit"><button class="logo-btn" type="button">Edit</button></a>
+          <form method="post" action="/c/{{ c._id }}/delete">
+            <button class="logo-btn" type="submit">Delete</button>
+          </form>
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+
+  {% if current_user.is_authenticated %}
+    <form method="post" action="/t/{{ thread._id }}/comment">
+      <div class="form-group">
+        <input name="body" placeholder="Write a comment..." required>
+      </div>
+      <button class="submit" type="submit">Post Comment</button>
+    </form>
+  {% else %}
+    <p><a href="/login.html">Log in</a> to comment.</p>
+  {% endif %}
+
+</body>
+</html>

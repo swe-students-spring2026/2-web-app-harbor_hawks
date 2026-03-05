@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-
 from bson import ObjectId
 from flask import Blueprint, jsonify, redirect, request, url_for
 from flask_login import UserMixin, current_user, login_user, logout_user
@@ -80,6 +79,21 @@ def register():
 
     return jsonify({"ok": True, "user": user.to_json()}), 201
 
+@bp.post("/auth/login_form")
+def login_form():
+    email = (request.form.get("email") or "").strip().lower()
+    password = request.form.get("password") or ""
+
+    if not email or not password:
+        raise BadRequest("email and password are required.")
+
+    doc = authenticate_user(email=email, password=password)
+    if not doc:
+        raise Unauthorized("Invalid email or password.")
+
+    user = MongoUser(_id=doc["_id"], email=doc["email"], display_name=doc.get("display_name"))
+    login_user(user)
+    return redirect("/dashboard")
 
 @bp.post("/auth/login")
 def login():
