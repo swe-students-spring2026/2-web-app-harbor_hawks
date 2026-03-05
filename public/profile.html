@@ -28,14 +28,17 @@
   <form method="POST" action="{{ url_for('account_update') }}">
     <div class="form-group">
       <input id="display_name" name="display_name" type="text" placeholder="Name" value="{{ display_name|e }}" required>
+      <small style="font-size: 12px; color: #6a7075;">Name shown on your posts and comments.</small>
     </div>
 
     <div class="form-group">
       <input id="email" name="email" type="email" placeholder="Email" value="{{ email|e }}" required>
+      <small style="font-size: 12px; color: #6a7075;">Used for login and account updates.</small>
     </div>
 
     <div class="form-group">
       <input id="password" name="password" type="password" placeholder="New password (optional)">
+      <small style="font-size: 12px; color: #6a7075;">Leave blank if you do not want to change your password.</small>
     </div>
 
     <input type="hidden" name="next" value="{{ page_mode }}">
@@ -58,6 +61,7 @@
         <option value="gallatin" {{ 'selected' if school == 'gallatin' else '' }}>Gallatin School of Individualized Study</option>
         <option value="sps" {{ 'selected' if school == 'sps' else '' }}>School of Professional Studies</option>
       </select>
+      <small style="font-size: 12px; color: #6a7075;">Choose the NYU school you are enrolled in.</small>
     </div>
 
     <div class="form-group">
@@ -69,18 +73,22 @@
         <option value="2029" {{ 'selected' if grad_year == '2029' else '' }}>Class of 2029</option>
         <option value="2030" {{ 'selected' if grad_year == '2030' else '' }}>Class of 2030</option>
       </select>
+      <small style="font-size: 12px; color: #6a7075;">Select your expected graduation year.</small>
     </div>
 
     <div class="form-group">
       <input id="major" name="major" type="text" placeholder="Enter your major" value="{{ major|e }}" required>
+      <small style="font-size: 12px; color: #6a7075;">Enter your primary major.</small>
     </div>
 
     <div class="form-group">
       <input id="interests" name="interests" type="text" placeholder="e.g. AI, Startups, Running" value="{{ interests|e }}">
+      <small style="font-size: 12px; color: #6a7075;">Use commas to separate interests.</small>
     </div>
 
     <div class="form-group">
       <input id="courses" name="courses" type="text" placeholder="e.g. Algorithms, OS, Linear Algebra" value="{{ courses|e }}">
+      <small style="font-size: 12px; color: #6a7075;">List current courses separated by commas.</small>
     </div>
 
     <input type="hidden" name="next" value="{{ 'dashboard' if page_mode == 'setup' else 'profile' }}">
