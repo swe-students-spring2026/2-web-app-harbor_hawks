@@ -83,6 +83,24 @@ label{
 .submit:active{
   opacity: 0.5;
 }
+
+.profile-logout {
+  background-color: #dc2626;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1.2;
+  width: auto;
+  display: inline-block;
+  text-decoration: none;
+}
+
+.profile-logout:active {
+  opacity: 0.7;
+}
+
 .logo-btn {
   display: flex;
   align-items: center;
